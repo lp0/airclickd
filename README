@@ -1,0 +1,21 @@
+/*
+	2009-06-16 Simon Arlott
+	http://simon.arlott.org/sw/airclickd/
+
+	The code is released into the public domain.
+*/
+
+Usage
+	airclickd </dev/hidrawN
+
+Notes
+	Requires Linux '/dev/hidraw':
+		Device Drivers -> HID Devices -> Generic HID support -> /dev/hidraw raw HID device support.
+
+	Create executables in the PATH to be run on key press:
+		airclick-play
+		airclick-prev
+		airclick-next
+		airclick-voldown
+		airclick-volup
+	(Environment variables can be used to distinguish multiple daemons.)
