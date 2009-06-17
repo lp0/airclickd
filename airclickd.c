@@ -17,31 +17,17 @@
 #define AC_PREV     0x10
 
 /*
-	Bytes 0, 1, 2:
-	03 02 00
-
-	Byte 3:
-	01 play
-	02 up
-	04 down
-	08 next
-	10 prev
-	20 n/a
-	40 n/a
-	80 n/a
-
-	Byte 4:
-	01 !play
-	02 !up
-	04 down
-	08 (!next) ^ down
-	10 (!prev) ^ (next && down)
-	20 !(prev && next && down)
-	40 n/a
-	80 n/a
-
-	Bytes 3, 4, 5:
-	00 00 00
+	Protocol format:
+	03 02 00 xx xx 00 00 00
+	        /     \
+	play  01       01 !play
+	up    02       02 !up
+	down  04       04 down
+	next  08       08 (!next) ^ down
+	prev  10       10 (!prev) ^ (next && down)
+	n/a   20       20 !(prev && next && down)
+	n/a   40       40 n/a
+	n/a   80       80 n/a
 */
 
 #define AC_LEN      8
