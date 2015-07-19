@@ -5,7 +5,11 @@
 	The code is released into the public domain.
 */
 
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,68 +37,60 @@
 #define AC_LEN      8
 #define AC_STATUS   3
 
-#define AC_SIG1_POS 0
-#define AC_SIG1_VAL 0x03
-#define AC_SIG2_POS 1
-#define AC_SIG2_VAL 0x02
-#define AC_SIG3_POS 2
-#define AC_SIG3_VAL 0x00
-#define AC_SIG4_POS 5
-#define AC_SIG4_VAL 0x00
-#define AC_SIG5_POS 6
-#define AC_SIG5_VAL 0x00
-#define AC_SIG6_POS 7
-#define AC_SIG6_VAL 0x00
+#define AC_PREFIX   0
+#define AC_SUFFIX   5
 
-int run(const char *cmd);
+static const uint8_t ac_prefix[] = { 0x03, 0x02, 0x00 };
+static const uint8_t ac_suffix[] = { 0x00, 0x00, 0x00 };
+
+static void run(const char *cmd);
 
 int main() {
-	unsigned char last = 0;
-	unsigned char buf[AC_LEN];
-	int status;
-	int children = 0;
+	uint_fast8_t last = 0;
+	uint8_t buf[AC_LEN];
+
+	if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
+		perror("signal");
+		return EXIT_FAILURE;
+	}
 
 	/* We'll read 8 bytes (repeatedly) whenever a button is pressed, held down or released. */
-	while (read(0, &buf, sizeof(buf)) == sizeof(buf)) {
-		if (children > 0) {
-			if (waitpid(-1, &status, WNOHANG) > 0)
-				children--;
-		}
+	while (read(STDIN_FILENO, &buf, sizeof(buf)) == sizeof(buf)) {
+		uint_fast8_t current = buf[AC_STATUS];
 
-		if (buf[AC_SIG1_POS] != AC_SIG1_VAL) continue;
-		if (buf[AC_SIG2_POS] != AC_SIG2_VAL) continue;
-		if (buf[AC_SIG3_POS] != AC_SIG3_VAL) continue;
-		if (buf[AC_SIG4_POS] != AC_SIG4_VAL) continue;
-		if (buf[AC_SIG5_POS] != AC_SIG5_VAL) continue;
-		if (buf[AC_SIG6_POS] != AC_SIG6_VAL) continue;
+		if (current == last)
+			continue;
 
-		if (!(last & AC_PLAY) && (buf[AC_STATUS] & AC_PLAY))
-			children += run("airclick-play");
+		if (memcmp(buf+AC_PREFIX, ac_prefix, sizeof(ac_prefix)) || memcmp(buf+AC_SUFFIX, ac_suffix, sizeof(ac_suffix)))
+			continue;
 
-		if (!(last & AC_VOLUP) && (buf[AC_STATUS] & AC_VOLUP))
-			children += run("airclick-volup");
+		if ((current & AC_PLAY) && !(last & AC_PLAY))
+			run("airclick-play");
 
-		if (!(last & AC_VOLDOWN) && (buf[AC_STATUS] & AC_VOLDOWN))
-			children += run("airclick-voldown");
+		if ((current & AC_VOLUP) && !(last & AC_VOLUP))
+			run("airclick-volup");
 
-		if (!(last & AC_NEXT) && (buf[AC_STATUS] & AC_NEXT))
-			children += run("airclick-next");
+		if ((current & AC_VOLDOWN) && !(last & AC_VOLDOWN))
+			run("airclick-voldown");
 
-		if (!(last & AC_PREV) && (buf[AC_STATUS] & AC_PREV))
-			children += run("airclick-prev");
+		if ((current & AC_NEXT) && !(last & AC_NEXT))
+			run("airclick-next");
 
-		last = buf[AC_STATUS];
+		if ((current & AC_PREV) && !(last & AC_PREV))
+			run("airclick-prev");
+
+		last = current;
 	}
 	perror("read");
-	return 1;
+	return EXIT_FAILURE;
 }
 
-int run(const char *cmd) {
-	if (fork() != 0) return 1;
+static void run(const char *cmd) {
+	if (fork() != 0) return;
 
-	close(0);
-	close(1);
-	close(2);
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
 
 	execlp(cmd, cmd, NULL);
 	_exit(1);
